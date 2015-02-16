@@ -3,6 +3,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RankNTypes #-}
 
+module ILP where
+
 import ClassyPrelude hiding (union)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -44,13 +46,6 @@ type Database = Map Symbol [Clause]
 -- | A backtracking equivalence monad
 -- Allows for backtracking and equivalence relations
 type BacktrackEquiv = UnionFind Variable Logic
-
-clause1 = Clause "happy" [Var "X"] (Check "eats" [Var "X"])
-clause4 = Clause "happy" [Var "X"] (Unify (Var "X") (Atom "phil"))
-clause2 = Clause "eats" [Atom "phil"] LTrue
-clause3 = Clause "eats" [Atom "joel"] LTrue
-database :: Database
-database = Map.fromList [("happy", [clause1, clause4]), ("eats", [clause2, clause3])]
 
 addToDatabase :: Clause -> Database -> Database
 addToDatabase clause@(Clause sym _ _) = insertWith (++) sym [clause]
@@ -109,5 +104,3 @@ solveAll :: Body -> Database -> [[(Variable, Variable)]]
 solveAll query@(Check _ variables) database = observeAll $ (flip evalStateT) Map.empty $ do
   interpret database query
   mapM (\x -> repr x >>= return . (,) x) variables
-
-main = return ()
