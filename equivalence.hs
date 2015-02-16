@@ -2,7 +2,7 @@
 module UnionFind where
 
 import Data.Map as M
-import Control.Monad.State.Lazy
+import Control.Monad.Trans.State.Lazy
 
 repr' :: Ord a => a -> Map a a -> Maybe a
 repr' r d = case M.lookup r d of
@@ -10,9 +10,9 @@ repr' r d = case M.lookup r d of
              Just a          -> repr' a d
              Nothing         -> Nothing -- shouldn't happen
 
-type UnionFind a = State (Map a a)
+type UnionFind a = StateT (Map a a)
 
-repr :: Ord a => a -> UnionFind a a
+-- repr :: Ord a => a -> UnionFind a a
 repr x = do
   d <- get
   case repr' x d of
@@ -21,7 +21,7 @@ repr x = do
 
 -- | equate unions the equivalence classes of two elements
 -- the representation is taken from the second
-equate :: Ord a => a -> a -> UnionFind a ()
+-- equate :: Ord a => a -> a -> UnionFind a ()
 equate a b = do
   ra <- repr a
   rb <- repr b

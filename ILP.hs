@@ -12,22 +12,24 @@ import Data.Foldable hiding (sequence_, forM_)
 -- import Data.Equivalence.Monad
 -- import Control.Monad.ST.Trans
 import UnionFind
-import Control.Monad.State.Lazy (State, evalState, get, put)
+import Control.Monad.Trans.State.Lazy (evalStateT)
 
 import Control.Monad.Logic hiding (sequence_, forM_, mapM, forM)
 
--- a variable can either be "literal" or a variable
-data Variable = Var Text
-              | Atom Text
+{-
+TODO LIST
+=========
+  - unique variable names in clauses (ex. foo(X) and bar(X))
+-}
+
+-- | A variable
+data Variable = Var Text -- A variable variable i.e. exactly what you expect
+              | Atom Text -- A "literal"
               deriving (Show, Eq, Ord)
 
--- representations of variables for the equivalence relation
-data Rep = Placeholder (Set Variable) -- any number of Vars can be in a group
-         | Concrete Variable          -- only one Atom can represent a group
-         deriving (Show, Eq, Ord)
-
 type Symbol = Text
-data Clause = Clause Symbol [Variable] Body
+data Clause = Clause Symbol [Variable] Body deriving (Show, Eq, Ord)
+-- | The AST of an ILP program
 data Body = And Body Body
           | Or Body Body
           | Check Symbol [Variable]
@@ -35,14 +37,13 @@ data Body = And Body Body
           | LTrue
           | LFalse
           | Extend Clause Body -- ILP extend with clause
-
-data Val = VInt Int
+          deriving (Show, Eq, Ord)
 
 type Database = Map Symbol [Clause]
 
 -- | A backtracking equivalence monad
--- The equivalence is on the inside so that backtracking can change it
-type BacktrackEquiv = LogicT (UnionFind Variable)
+-- Allows for backtracking and equivalence relations
+type BacktrackEquiv = UnionFind Variable Logic
 
 clause1 = Clause "happy" [Var "X"] (Check "eats" [Var "X"])
 clause4 = Clause "happy" [Var "X"] (Unify (Var "X") (Atom "phil"))
@@ -54,97 +55,59 @@ database = Map.fromList [("happy", [clause1, clause4]), ("eats", [clause2, claus
 addToDatabase :: Clause -> Database -> Database
 addToDatabase clause@(Clause sym _ _) = insertWith (++) sym [clause]
 
-{-
--- | union two variable representations
-unionRep a b = case (a, b) of
-                 (Placeholder a, Placeholder b) -> Placeholder $ Set.union a b
-                 (Concrete a   , Placeholder b) -> Concrete a
-                 (Placeholder a, Concrete b   ) -> Concrete b
-                 (Concrete _   , Concrete _   ) -> undefined -- TODO: should this fail instead
--- | create a Rep from a Variable
-toRep v@(Var _ ) = Placeholder $ Set.singleton v
-toRep a@(Atom _) = Concrete a
--}
-
--- | lookup a symbol in the relation database
+-- | Lookup a symbol in the relation database
 -- will return a list of matching clauses
 lookupSymbol :: Database -> Symbol -> BacktrackEquiv [Clause]
 lookupSymbol d x = case lookup x d of
                      Just a  -> return a
                      Nothing -> mzero
 
--- | unify two values, must be lifted into the outermost monad
--- TODO: forbit unioning two values
+-- | Unify two values, must be lifted into the outermost monad
 unify :: Variable -> Variable -> BacktrackEquiv ()
 unify a b = do
-  descA <- lift $ repr a
-  descB <- lift $ repr b
+  descA <- repr a
+  descB <- repr b
   case (descA, descB) of
     (Atom a1, Atom a2) | a1 /= a2 -> do
       mzero -- fail, can't union two Atoms variables
     (Atom _, Atom _) -> return () -- we have the same class
-    (Atom a, Var v) -> lift $ equate (Var v) (Atom a) -- second arguement is the representative
-    (Var v, Atom a) -> lift $ equate (Var v) (Atom a)
-    (Var v1, Var v2) -> lift $ equate (Var v1) (Var v2)
+    (Atom a, Var v) -> equate (Var v) (Atom a) -- second arguement is the representative
+    (Var v, Atom a) -> equate (Var v) (Atom a)
+    (Var v1, Var v2) -> equate (Var v1) (Var v2)
 
-{-
--- | A helper to run the equivalence monad with our representation
-run :: (forall s. EquivM s Rep Variable a) -> a
-run = runEquivM toRep unionRep
--}
-
--- | interpret an ilp mini-prolog program
--- a state monad cannot be used because logict backtracks incorrectly with State
-interpret :: Equivalence Variable -> Database -> Body -> BacktrackEquiv ()
-interpret equiv database (And b1 b2)          = (interpret equiv database b1) >>- (const $ interpret equiv database b2)
-interpret equiv database (Or b1 b2)           = interpret equiv database b1 `interleave` interpret equiv database b2
-interpret equiv database (Check sym vars)     = do
+-- | Interprets an ILP program with a given database
+-- The database is passed through because it is modified in implication
+-- TODO: use State?
+interpret :: Database -> Body -> BacktrackEquiv ()
+interpret database (And b1 b2)          = (interpret database b1) >>- (const $ interpret database b2)
+interpret database (Or b1 b2)           = interpret database b1 `interleave` interpret database b2
+interpret database (Check sym vars)     = do
   clauses <- lookupSymbol database sym
   foldr1 interleave $ -- try each clause independently TODO: foldr or foldl
     (flip map) clauses -- TODO: 'flip map' should really be 'for', but it doesn't work
       (\(Clause sym' vars' body) -> do
-        traceShowM (sym', vars')
         -- unify variables with arguements
         zipWithM_ unify vars vars'
         -- check the body
         interpret database body
       )
-interpret equiv database (Unify var1 var2)    = unify var1 var2
-interpret equiv database LTrue                = return ()
-interpret equiv database LFalse               = mzero
-interpret equiv database (Extend fact clause) = interpret equiv (addToDatabase fact database) clause
+interpret database (Unify var1 var2)    = unify var1 var2
+interpret database LTrue                = return ()
+interpret database LFalse               = mzero
+interpret database (Extend fact clause) = interpret (addToDatabase fact database) clause
 
+-- | Interpret an ILP program with a given query and return the first result
+-- The query is given as a Check
+-- TODO: foo(a) should return true or false
 solve :: Body -> Database -> [(Variable, Variable)]
-solve query@(Check _ variables) database = (flip evalState) Map.empty $ do
-  observeT $ do
-    interpret database query
-    mapM (\x -> lift $ repr x >>= return . (,) x) variables
+solve query@(Check _ variables) database = observe $ (flip evalStateT) Map.empty $ do
+  interpret database query
+  mapM (\x -> repr x >>= return . (,) x) variables
 
+-- | Interpret an ILP program and return all results
 solveAll :: Body -> Database -> [[(Variable, Variable)]]
-solveAll query@(Check _ variables) database = (flip evalState) Map.empty $ do
-  observeAllT $ do
-    interpret database query
-    mapM (\x -> lift $ repr x >>= return . (,) x) variables
-
-test :: BacktrackEquiv Bool
-test = m1 `interleave` m2
-  where
-    m1 = do
-      unify (Var "X") (Atom "a")
-      mzero
-    m2 = do
-      lift $ get >>= traceShowM
-      unify (Var "X") (Atom "b")
-      return True
-
-test2 :: LogicT (State Bool) Bool
-test2 = m1 `interleave` m2
-  where
-    m1 = do
-      lift $ put True
-      mzero
-    m2 = do
-      s <- get
-      return s
+solveAll query@(Check _ variables) database = observeAll $ (flip evalStateT) Map.empty $ do
+  interpret database query
+  mapM (\x -> repr x >>= return . (,) x) variables
 
 main = return ()
