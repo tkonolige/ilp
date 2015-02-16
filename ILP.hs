@@ -32,6 +32,7 @@ data Body = And Body Body
           | Unify Variable Variable
           | LTrue
           | LFalse
+          | Extend Clause Body -- ILP extend with clause
 
 data Val = VInt Int
 
@@ -48,6 +49,9 @@ clause2 = Clause "eats" [Atom "phil"] LTrue
 clause3 = Clause "eats" [Atom "joel"] LTrue
 database :: Database
 database = Map.fromList [("happy", [clause1, clause4]), ("eats", [clause2, clause3])]
+
+addToDatabase :: Clause -> Database -> Database
+addToDatabase clause@(Clause sym _ _) = insertWith (++) sym [clause]
 
 -- | union two variable representations
 unionRep a b = case (a, b) of
@@ -83,9 +87,9 @@ run :: (forall s. EquivM s Rep Variable a) -> a
 run = runEquivM toRep unionRep
 
 interpret :: Database -> Body -> BacktrackEquiv s ()
-interpret database (And b1 b2)       = (interpret database b1) >>- (const $ interpret database b2)
-interpret database (Or b1 b2)        = interpret database b1 `interleave` interpret database b2
-interpret database (Check sym vars)  = do
+interpret database (And b1 b2)          = (interpret database b1) >>- (const $ interpret database b2)
+interpret database (Or b1 b2)           = interpret database b1 `interleave` interpret database b2
+interpret database (Check sym vars)     = do
   clauses <- lookupSymbol database sym
   foldr1 interleave $ -- try each clause independently TODO: foldr or foldl
     (flip map) clauses -- TODO: 'flip map' should really be 'for', but it doesn't work
@@ -96,9 +100,10 @@ interpret database (Check sym vars)  = do
         -- check the body
         interpret database body
       )
-interpret database (Unify var1 var2) = unify var1 var2
-interpret database LTrue             = return ()
-interpret database LFalse            = mzero
+interpret database (Unify var1 var2)    = unify var1 var2
+interpret database LTrue                = return ()
+interpret database LFalse               = mzero
+interpret database (Extend fact clause) = interpret (addToDatabase fact database) clause
 
 solve :: Body -> Database -> [(Variable, Rep)]
 solve query@(Check _ variables) database = run $ do
