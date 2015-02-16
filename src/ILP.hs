@@ -38,6 +38,7 @@ data Body = And Body Body
           | Unify Variable Variable
           | LTrue
           | LFalse
+          | Not Body
           | Extend Clause Body -- ILP extend with clause
           deriving (Show, Eq, Ord)
 
@@ -47,8 +48,14 @@ type Database = Map Symbol [Clause]
 -- Allows for backtracking and equivalence relations
 type BacktrackEquiv = UnionFind Variable Logic
 
+-- | Add a Clause to a Database
+-- New Clauses are considered before old ones
 addToDatabase :: Clause -> Database -> Database
 addToDatabase clause@(Clause sym _ _) = insertWith (++) sym [clause]
+
+-- | Create Database from a list of Clauses
+createDatabase :: [Clause] -> Database
+createDatabase = foldl (flip addToDatabase) Map.empty
 
 -- | Lookup a symbol in the relation database
 -- will return a list of matching clauses
@@ -89,6 +96,7 @@ interpret database (Check sym vars)     = do
 interpret database (Unify var1 var2)    = unify var1 var2
 interpret database LTrue                = return ()
 interpret database LFalse               = mzero
+interpret database (Not body)           = lnot $ interpret database body
 interpret database (Extend fact clause) = interpret (addToDatabase fact database) clause
 
 -- | Interpret an ILP program with a given query and return the first result
