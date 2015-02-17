@@ -19,12 +19,6 @@ import Control.Monad.Logic hiding (sequence_, forM_, mapM, forM)
 import Text.Parsec hiding ((<|>))
 import Data.Text (pack)
 
-{-
-TODO LIST
-=========
-  - unique variable names in clauses (ex. foo(X) and bar(X))
--}
-
 -- | A variable
 data Variable = Var Text -- A variable variable i.e. exactly what you expect
               | Atom Text -- A "literal"
@@ -102,11 +96,13 @@ unify' env1 env2 a b = do
 -- The database is passed through because it is modified in implication
 -- TODO: use State?
 interpret :: Env -> Database -> Int -> Body -> BacktrackEquiv ()
-interpret env database i (And b1 b2)          = (interpret env database i b1) >>- (const $ interpret env database i b2)
-interpret env database i (Or b1 b2)           = interpret env database i b1 `interleave` interpret env database i b2
+interpret env database i (And b1 b2) = 
+  (interpret env database i b1) >>- (const $ interpret env database i b2)
+interpret env database i (Or b1 b2) = 
+  interpret env database i b1 `interleave` interpret env database i b2
 interpret env database i (Check sym args)     = do
   clauses <- lookupSymbol database sym
-  foldr1 interleave $ -- try each clause independently TODO: foldr or foldl
+  foldr1 interleave $ -- try each clause independently
     (flip map) clauses -- TODO: 'flip map' should really be 'for', but it doesn't work
       (\c@(Clause sym' vars body) -> do
         -- lookup values of arguments
@@ -118,14 +114,16 @@ interpret env database i (Check sym args)     = do
         -- check the body
         interpret env' database i body
       )
-interpret env database i (Unify var1 var2)    = unify env var1 var2
-interpret env database i LTrue                = return ()
-interpret env database i LFalse               = mzero
-interpret env database i (Not body)           = lnot $ interpret env database i body
+interpret env database i (Unify var1 var2) = unify env var1 var2
+interpret env database i LTrue = return ()
+interpret env database i LFalse = mzero
+interpret env database i (Not body) = lnot $ interpret env database i body
 interpret env database i (Extend (Clause sym vars body) clause) = do
+  -- find the values of the variables TODO: need to find repr?
   vars' <- mapM (\x -> lookup' x env >>= repr) vars
   interpret env (addToDatabase (Clause sym vars' body) database) i clause
-interpret env database i (Local (Var var) body) = interpret (Map.insert (Var var) (Var $ var ++ pack (show i)) env) database (i+1) body
+interpret env database i (Local (Var var) body) = 
+  interpret (Map.insert (Var var) (Var $ var ++ pack (show i)) env) database (i+1) body
 
 -- | Interpret an ILP program with a given query and return the first result
 -- The query is given as a Check
