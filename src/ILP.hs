@@ -5,18 +5,19 @@
 
 module ILP where
 
-import ClassyPrelude hiding (union)
+import ClassyPrelude hiding (union, pack)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Foldable hiding (sequence_, forM_)
 
 -- for equivalence relations
--- import Data.Equivalence.Monad
--- import Control.Monad.ST.Trans
 import UnionFind
-import Control.Monad.Trans.State.Lazy (evalStateT)
+import Control.Monad.Trans.State.Lazy (evalStateT, get)
 
 import Control.Monad.Logic hiding (sequence_, forM_, mapM, forM)
+
+import Text.Parsec hiding ((<|>))
+import Data.Text (pack)
 
 {-
 TODO LIST
@@ -40,9 +41,13 @@ data Body = And Body Body
           | LFalse
           | Not Body
           | Extend Clause Body -- ILP extend with clause
+          | Local Variable Body
           deriving (Show, Eq, Ord)
 
+data Query = Query Symbol [Variable]
+
 type Database = Map Symbol [Clause]
+type Env = Map Variable Variable
 
 -- | A backtracking equivalence monad
 -- Allows for backtracking and equivalence relations
@@ -64,51 +69,76 @@ lookupSymbol d x = case lookup x d of
                      Just a  -> return a
                      Nothing -> mzero
 
+lookup' :: Variable -> Env -> BacktrackEquiv Variable
+lookup' (Var t) env = case lookup (Var t) env of
+                        Just a -> return a
+                        Nothing -> mzero
+lookup' (Atom t) _ = return $ Atom t
+
 -- | Unify two values, must be lifted into the outermost monad
-unify :: Variable -> Variable -> BacktrackEquiv ()
-unify a b = do
-  descA <- repr a
-  descB <- repr b
+unify :: Env -> Variable -> Variable -> BacktrackEquiv ()
+unify env a b = do
+  descA <- lookup' a env >>= repr
+  descB <- lookup' b env >>= repr
   case (descA, descB) of
-    (Atom a1, Atom a2) | a1 /= a2 -> do
-      mzero -- fail, can't union two Atoms variables
+    (Atom a1, Atom a2) | a1 /= a2 -> mzero -- fail, can't union two Atoms variables
     (Atom _, Atom _) -> return () -- we have the same class
-    (Atom a, Var v) -> equate (Var v) (Atom a) -- second arguement is the representative
-    (Var v, Atom a) -> equate (Var v) (Atom a)
+    (Atom a, Var v)  -> equate (Var v) (Atom a) -- second arguement is the representative
+    (Var v, Atom a)  -> equate (Var v) (Atom a)
+    (Var v1, Var v2) -> equate (Var v1) (Var v2)
+
+unify' :: Env -> Env -> Variable -> Variable -> BacktrackEquiv ()
+unify' env1 env2 a b = do
+  descA <- lookup' a env1 >>= repr
+  descB <- lookup' b env2 >>= repr
+  case (descA, descB) of
+    (Atom a1, Atom a2) | a1 /= a2 -> mzero -- fail, can't union two Atoms variables
+    (Atom _, Atom _) -> return () -- we have the same class
+    (Atom a, Var v)  -> equate (Var v) (Atom a) -- second arguement is the representative
+    (Var v, Atom a)  -> equate (Var v) (Atom a)
     (Var v1, Var v2) -> equate (Var v1) (Var v2)
 
 -- | Interprets an ILP program with a given database
 -- The database is passed through because it is modified in implication
 -- TODO: use State?
-interpret :: Database -> Body -> BacktrackEquiv ()
-interpret database (And b1 b2)          = (interpret database b1) >>- (const $ interpret database b2)
-interpret database (Or b1 b2)           = interpret database b1 `interleave` interpret database b2
-interpret database (Check sym vars)     = do
+interpret :: Env -> Database -> Int -> Body -> BacktrackEquiv ()
+interpret env database i (And b1 b2)          = (interpret env database i b1) >>- (const $ interpret env database i b2)
+interpret env database i (Or b1 b2)           = interpret env database i b1 `interleave` interpret env database i b2
+interpret env database i (Check sym args)     = do
   clauses <- lookupSymbol database sym
   foldr1 interleave $ -- try each clause independently TODO: foldr or foldl
     (flip map) clauses -- TODO: 'flip map' should really be 'for', but it doesn't work
-      (\(Clause sym' vars' body) -> do
+      (\c@(Clause sym' vars body) -> do
+        -- lookup values of arguments
+        args' <- mapM ((flip lookup') env) args
+        -- create new environment
+        let env' = Map.fromList $ zip vars args'
         -- unify variables with arguements
-        zipWithM_ unify vars vars'
+        zipWithM_ (unify' env' env) vars args
         -- check the body
-        interpret database body
+        interpret env' database i body
       )
-interpret database (Unify var1 var2)    = unify var1 var2
-interpret database LTrue                = return ()
-interpret database LFalse               = mzero
-interpret database (Not body)           = lnot $ interpret database body
-interpret database (Extend fact clause) = interpret (addToDatabase fact database) clause
+interpret env database i (Unify var1 var2)    = unify env var1 var2
+interpret env database i LTrue                = return ()
+interpret env database i LFalse               = mzero
+interpret env database i (Not body)           = lnot $ interpret env database i body
+interpret env database i (Extend (Clause sym vars body) clause) = do
+  vars' <- mapM (\x -> lookup' x env >>= repr) vars
+  interpret env (addToDatabase (Clause sym vars' body) database) i clause
+interpret env database i (Local (Var var) body) = interpret (Map.insert (Var var) (Var $ var ++ pack (show i)) env) database (i+1) body
 
 -- | Interpret an ILP program with a given query and return the first result
 -- The query is given as a Check
 -- TODO: foo(a) should return true or false
 solve :: Body -> Database -> [(Variable, Variable)]
 solve query@(Check _ variables) database = observe $ (flip evalStateT) Map.empty $ do
-  interpret database query
+  let env = Map.fromList $ zip variables variables
+  interpret env database 0 query
   mapM (\x -> repr x >>= return . (,) x) variables
 
 -- | Interpret an ILP program and return all results
 solveAll :: Body -> Database -> [[(Variable, Variable)]]
 solveAll query@(Check _ variables) database = observeAll $ (flip evalStateT) Map.empty $ do
-  interpret database query
+  let env = Map.fromList $ zip variables variables
+  interpret env database 0 query
   mapM (\x -> repr x >>= return . (,) x) variables
