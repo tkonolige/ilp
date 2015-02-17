@@ -9,4 +9,4 @@ database = createDatabase [ Clause "happy" [Var "X"] (Check "eats" [Var "X"])
                           , Clause "eats" [Atom "phil"] LTrue
                           , Clause "eats" [Atom "joel"] LTrue
                           ]
-testSolveAll = solveAll (Check "happy" [Var "X"]) database
+runTest = solveAll (Check "happy" [Var "X"]) database
