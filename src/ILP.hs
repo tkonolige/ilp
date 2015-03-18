@@ -12,18 +12,15 @@ import Data.Foldable hiding (sequence_, forM_)
 
 -- for equivalence relations
 import UnionFind
-import Control.Monad.Trans.State.Lazy (evalStateT, get)
+import Control.Monad.Trans.State.Lazy
 
 import Control.Monad.Logic hiding (sequence_, forM_, mapM, forM)
 
-import Text.Parsec hiding ((<|>))
-import Data.Text (pack)
-
-data Variable = Var Text -- A placeholder value
-              | Atom Text -- A "literal"
+data Variable = Var String -- A placeholder value
+              | Atom String -- A "literal"
               deriving (Show, Eq, Ord)
 
-type Symbol = Text
+type Symbol = String
 data Clause = Clause Symbol [Variable] Body deriving (Show, Eq, Ord)
 -- | The main AST of an ILP program
 data Body = And Body Body
@@ -135,21 +132,35 @@ interpret env database i (Extend (Clause sym vars body) clause) = do
 
 interpret env database i (Local (Var var) body) =
   -- insert a new variable into the environment, it must have a unique name
-  interpret (Map.insert (Var var) (Var $ var ++ pack (show i)) env) database (i+1) body
+  interpret (Map.insert (Var var) (Var $ var ++ show i) env) database (i+1) body
+
+isVar :: Variable -> Bool
+isVar (Var _) = True
+isVar (Atom _ ) = False
+
+-- | Find all variables in a statement and populate a map with them
+--   This is used to set up the initial Env for a query
+populateEnv :: Body -> Env
+populateEnv b = Map.fromList $ map (\a->(a,a)) $ filter isVar $ pop b
+  where
+    pop (And a b) = pop a ++ pop b
+    pop (Or a b) = pop a ++ pop b
+    pop (Check _ vars) = vars
+    pop (Unify a b) = [a,b]
+    pop (Not b) = pop b
+    pop _ = [] -- TODO handle Extend
+
+makeQuery :: Body -> Database -> Logic Env
+makeQuery query database = do
+  env <- (flip execStateT) Map.empty $ interpret (populateEnv query) database 0 query
+  return $ Map.filterWithKey (\k _ -> isVar k) env
 
 -- | Interpret an ILP program with a given query and return the first result
 -- The query is given as a Check
 -- TODO: foo(a) should return true or false
 solve :: Body -> Database -> [(Variable, Variable)]
-solve query@(Check _ variables) database = observe $ (flip evalStateT) Map.empty $ do
-  -- map parameters to themselves for initial env
-  let env = Map.fromList $ zip variables variables
-  interpret env database 0 query -- run query
-  mapM (\x -> repr x >>= return . (,) x) variables -- print what each parameter maps to
+solve q d = Map.toList $ observe $ makeQuery q d
 
 -- | Same as solve, but returns all results
 solveAll :: Body -> Database -> [[(Variable, Variable)]]
-solveAll query@(Check _ variables) database = observeAll $ (flip evalStateT) Map.empty $ do
-  let env = Map.fromList $ zip variables variables
-  interpret env database 0 query
-  mapM (\x -> repr x >>= return . (,) x) variables
+solveAll q d = map Map.toList $ observeAll $ makeQuery q d
