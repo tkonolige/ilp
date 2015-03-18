@@ -19,14 +19,13 @@ import Control.Monad.Logic hiding (sequence_, forM_, mapM, forM)
 import Text.Parsec hiding ((<|>))
 import Data.Text (pack)
 
--- | A variable
-data Variable = Var Text -- A variable variable i.e. exactly what you expect
+data Variable = Var Text -- A placeholder value
               | Atom Text -- A "literal"
               deriving (Show, Eq, Ord)
 
 type Symbol = Text
 data Clause = Clause Symbol [Variable] Body deriving (Show, Eq, Ord)
--- | The AST of an ILP program
+-- | The main AST of an ILP program
 data Body = And Body Body
           | Or Body Body
           | Check Symbol [Variable]
@@ -37,8 +36,6 @@ data Body = And Body Body
           | Extend Clause Body -- ILP extend with clause
           | Local Variable Body
           deriving (Show, Eq, Ord)
-
-data Query = Query Symbol [Variable]
 
 type Database = Map Symbol [Clause]
 type Env = Map Variable Variable
@@ -63,6 +60,7 @@ lookupSymbol d x = case lookup x d of
                      Just a  -> return a
                      Nothing -> mzero
 
+-- | Lookup a Variable in the environment
 lookup' :: Variable -> Env -> BacktrackEquiv Variable
 lookup' (Var t) env = case lookup (Var t) env of
                         Just a -> return a
@@ -76,11 +74,12 @@ unify env a b = do
   descB <- lookup' b env >>= repr
   case (descA, descB) of
     (Atom a1, Atom a2) | a1 /= a2 -> mzero -- fail, can't union two Atoms variables
-    (Atom _, Atom _) -> return () -- we have the same class
-    (Atom a, Var v)  -> equate (Var v) (Atom a) -- second arguement is the representative
-    (Var v, Atom a)  -> equate (Var v) (Atom a)
+    (Atom _, Atom _) -> return () -- we have the same class, all ok
+    (Atom a, Var v)  -> equate (Var v)  (Atom a) -- second arguement is the representative
+    (Var v, Atom a)  -> equate (Var v)  (Atom a)
     (Var v1, Var v2) -> equate (Var v1) (Var v2)
 
+-- | Unify with Env associated with each Variable
 unify' :: Env -> Env -> Variable -> Variable -> BacktrackEquiv ()
 unify' env1 env2 a b = do
   descA <- lookup' a env1 >>= repr
@@ -94,13 +93,18 @@ unify' env1 env2 a b = do
 
 -- | Interprets an ILP program with a given database
 -- The database is passed through because it is modified in implication
--- TODO: use State?
-interpret :: Env -> Database -> Int -> Body -> BacktrackEquiv ()
-interpret env database i (And b1 b2) = 
+interpret :: Env      -- ^ The local environment
+          -> Database -- ^ The clause database, manually passed through because it is modified
+          -> Int      -- ^ An incrementing number to generate unique local names
+          -> Body     -- ^ The body of the clause to interpret
+          -> BacktrackEquiv ()
+interpret env database i (And b1 b2) = -- Conjunction
   (interpret env database i b1) >>- (const $ interpret env database i b2)
-interpret env database i (Or b1 b2) = 
+
+interpret env database i (Or b1 b2) = -- Disjunction
   interpret env database i b1 `interleave` interpret env database i b2
-interpret env database i (Check sym args)     = do
+
+interpret env database i (Check sym args)  = do
   clauses <- lookupSymbol database sym
   foldr1 interleave $ -- try each clause independently
     (flip map) clauses -- TODO: 'flip map' should really be 'for', but it doesn't work
@@ -114,15 +118,23 @@ interpret env database i (Check sym args)     = do
         -- check the body
         interpret env' database i body
       )
+
 interpret env database i (Unify var1 var2) = unify env var1 var2
+
 interpret env database i LTrue = return ()
-interpret env database i LFalse = mzero
+
+interpret env database i LFalse = mzero -- false triggers backtracking
+
 interpret env database i (Not body) = lnot $ interpret env database i body
+
 interpret env database i (Extend (Clause sym vars body) clause) = do
   -- find the values of the variables TODO: need to find repr?
-  vars' <- mapM (\x -> lookup' x env >>= repr) vars
+  -- TODO: forbid illegal clause bodys, should only be facts?
+  vars' <- mapM (\x -> lookup' x env) vars
   interpret env (addToDatabase (Clause sym vars' body) database) i clause
-interpret env database i (Local (Var var) body) = 
+
+interpret env database i (Local (Var var) body) =
+  -- insert a new variable into the environment, it must have a unique name
   interpret (Map.insert (Var var) (Var $ var ++ pack (show i)) env) database (i+1) body
 
 -- | Interpret an ILP program with a given query and return the first result
@@ -130,11 +142,12 @@ interpret env database i (Local (Var var) body) =
 -- TODO: foo(a) should return true or false
 solve :: Body -> Database -> [(Variable, Variable)]
 solve query@(Check _ variables) database = observe $ (flip evalStateT) Map.empty $ do
+  -- map parameters to themselves for initial env
   let env = Map.fromList $ zip variables variables
-  interpret env database 0 query
-  mapM (\x -> repr x >>= return . (,) x) variables
+  interpret env database 0 query -- run query
+  mapM (\x -> repr x >>= return . (,) x) variables -- print what each parameter maps to
 
--- | Interpret an ILP program and return all results
+-- | Same as solve, but returns all results
 solveAll :: Body -> Database -> [[(Variable, Variable)]]
 solveAll query@(Check _ variables) database = observeAll $ (flip evalStateT) Map.empty $ do
   let env = Map.fromList $ zip variables variables

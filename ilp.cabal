@@ -1,22 +1,22 @@
 name:                ilp
 version:             0.1.0.0
--- synopsis:            
--- description:         
+-- synopsis:
+-- description:
 license:             BSD3
 license-file:        LICENSE
 author:              Tristan Konolige
 maintainer:          tristan.konolige@gmail.com
--- copyright:           
--- category:            
+-- copyright:
+-- category:
 build-type:          Simple
--- extra-source-files:  
+-- extra-source-files:
 cabal-version:       >=1.10
 
 library
   exposed-modules:     ILP
-  -- other-modules:       
+  -- other-modules:
   other-extensions:    NoImplicitPrelude, OverloadedStrings, TemplateHaskell, RankNTypes
-  build-depends:       base >=4.7 && <4.8, 
+  build-depends:       base >=4.7 && <4.8,
                        classy-prelude >=0.10 && <0.11,
                        containers >=0.5 && <0.6,
                        transformers >=0.4 && <0.5,
@@ -29,7 +29,7 @@ library
 executable ilp
   main-is:             Main.hs
   other-extensions:    NoImplicitPrelude, OverloadedStrings, TemplateHaskell, RankNTypes
-  build-depends:       base >=4.7 && <4.8, 
+  build-depends:       base >=4.7 && <4.8,
                        classy-prelude >=0.10 && <0.11,
                        containers >=0.5 && <0.6,
                        transformers >=0.4 && <0.5,

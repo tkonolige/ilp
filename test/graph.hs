@@ -21,13 +21,13 @@ import ILP
 database = createDatabase 
              [ Clause "vertex" [Atom "a", Atom "foo"] LTrue
              , Clause "vertex" [Atom "b", Atom "bar"] LTrue
-             -- , Clause "vertex" [Atom "c", Atom "baz"] LTrue
-             -- , Clause "vertex" [Atom "d", Atom "hello"] LTrue
-             -- , Clause "edge" [Atom "a", Atom "a"] LTrue
+             , Clause "vertex" [Atom "c", Atom "baz"] LTrue
+             , Clause "vertex" [Atom "d", Atom "hello"] LTrue
+             , Clause "edge" [Atom "a", Atom "a"] LTrue
              , Clause "edge" [Atom "a", Atom "b"] LTrue
-             -- , Clause "edge" [Atom "b", Atom "c"] LTrue
-             -- , Clause "edge" [Atom "c", Atom "d"] LTrue
-             -- , Clause "edge" [Atom "b", Atom "a"] LTrue
+             , Clause "edge" [Atom "b", Atom "c"] LTrue
+             , Clause "edge" [Atom "c", Atom "d"] LTrue
+             , Clause "edge" [Atom "b", Atom "a"] LTrue
              , Clause "findVertexLabeled" [Var "StartVertex", Var "What", Var "ResultVertex"]
                  (Local (Var "NextVertex")
                    (And 
@@ -36,17 +36,22 @@ database = createDatabase
                        (Not $ Check "seen" [Var "NextVertex"])
                        (Extend
                          (Clause "seen" [Var "NextVertex"] LTrue)
-                         (Check "findVertexLabeled" [Var "NextVertex", Var "What", Var "ResultVertex"])
+                         (Check "findVertexLabeled"
+                           [Var "NextVertex", Var "What", Var "ResultVertex"]
+                         )
                        )
                      )
                    )
                  )
              , Clause "findVertexLabeled" [Var "StartVertex", Var "What", Var "StartVertex"]
                  (Check "vertex" [Var "StartVertex", Var "What"])
-             , Clause "findVertexLabeledFromStart" [Var "StartVertex", Var "What", Var "ResultVertex"]
+             , Clause "findVertexLabeledFromStart"
+               [Var "StartVertex", Var "What", Var "ResultVertex"]
                  (Extend
                    (Clause "seen" [Var "StartVertex"] LTrue)
-                   (Check "findVertexLabeled" [Var "StartVertex", Var "What", Var "ResultVertex"])
+                   (Check "findVertexLabeled"
+                     [Var "StartVertex", Var "What", Var "ResultVertex"]
+                   )
                  )
              ]
 
