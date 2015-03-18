@@ -8,4 +8,4 @@ This is a simple implementation of intuitionistic logic programming in haskell.
 
 ## Testing
 Tests are located inside the `test` directory. To load a test, run
-`cabal repl` and then `:l test/test.hs`.
+`cabal run test/test.ilp`.

@@ -13,28 +13,26 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     ILP
-  -- other-modules:
-  other-extensions:    NoImplicitPrelude, OverloadedStrings, TemplateHaskell, RankNTypes
+  exposed-modules:     ILP, Parser
+  other-modules:       Lexer, UnionFind
   build-depends:       base >=4.7 && <4.8,
                        classy-prelude >=0.10 && <0.11,
                        containers >=0.5 && <0.6,
                        transformers >=0.4 && <0.5,
                        logict >=0.6 && <0.7,
-                       parsec >= 3.1.0 && < 3.2.0,
-                       text >= 1.2 && < 1.3
+                       array
   hs-source-dirs:      src
+  build-tools:         alex, happy
   default-language:    Haskell2010
 
 executable ilp
   main-is:             Main.hs
-  other-extensions:    NoImplicitPrelude, OverloadedStrings, TemplateHaskell, RankNTypes
   build-depends:       base >=4.7 && <4.8,
                        classy-prelude >=0.10 && <0.11,
                        containers >=0.5 && <0.6,
                        transformers >=0.4 && <0.5,
                        logict >=0.6 && <0.7,
-                       parsec >= 3.1.0 && < 3.2.0,
-                       text >= 1.2 && < 1.3
-  hs-source-dirs:      src
+                       haskeline,
+                       prelude-extras,
+                       ilp
   default-language:    Haskell2010

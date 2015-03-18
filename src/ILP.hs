@@ -3,7 +3,16 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RankNTypes #-}
 
-module ILP where
+module ILP ( Variable(..)
+           , Symbol
+           , Clause(..)
+           , Body(..)
+           , Database
+           , Env
+           , createDatabase
+           , solve
+           , solveAll
+           ) where
 
 import ClassyPrelude hiding (union, pack)
 import qualified Data.Map as Map
