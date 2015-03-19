@@ -134,8 +134,8 @@ interpret env database i LFalse = mzero -- false triggers backtracking
 interpret env database i (Not body) = lnot $ interpret env database i body
 
 interpret env database i (Extend (Clause sym vars body) clause) = do
-  -- find the values of the variables TODO: need to find repr?
-  -- TODO: forbid illegal clause bodys, should only be facts?
+  -- find the values of the variables
+  -- TODO: forbid illegal clause bodys, should only be facts? unclear
   vars' <- mapM (\x -> lookup' x env) vars
   interpret env (addToDatabase (Clause sym vars' body) database) i clause
 

@@ -30,7 +30,7 @@ repl database = runInputT settings loop
                   loop
                 Right query ->
                   case solveAll query database of
-                    [] -> outputStrLn "No." >> loop
+                    [] -> outputStrLn "No\n." >> loop
                     rs -> mapM_ (\xs -> printEnv xs >> outputStrLn ".") rs >> loop
 
 main :: IO ()

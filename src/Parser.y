@@ -16,19 +16,21 @@ import Lexer
 %left '\+'
 
 %token
-      true            { TTrue }
-      false           { TFalse }
-      var             { TVar $$ }
-      atom            { TAtom $$ }
-      ','             { TComma }
+      true            { TTrue      }
+      false           { TFalse     }
+      var             { TVar $$    }
+      atom            { TAtom $$   }
+      ','             { TComma     }
       ';'             { TSemicolon }
-      '.'             { TDot }
-      ':-'            { TDefine }
-      '('             { TLParens }
-      ')'             { TRParens }
-      '='             { TEq }
-      '=>'            { TImply }
-      '\+'            { TNot }
+      '.'             { TDot       }
+      ':-'            { TDefine    }
+      '('             { TLParens   }
+      ')'             { TRParens   }
+      '='             { TEq        }
+      '=>'            { TImply     }
+      '\+'            { TNot       }
+      '{'             { TLCurly    }
+      '}'             { TRCurly    }
 %%
 
 Clauses : Clause Clauses                          { $1 : $2 }
@@ -58,10 +60,13 @@ Rule : atom '(' ArgsVar ')' Locals ':-' Statement { Clause $1 $3 (foldr (Local) 
 Var : var                                         { Var $1}
     | atom                                        { Atom $1 }
 
+Imply : Clause                                    { $1 }
+      | atom '(' ArgsMixed ')'                    { Clause $1 $3 LTrue }
+
 Statement : Statement ',' Statement               { And $1 $3 }
           | Statement ';' Statement               { Or $1 $3 }
           | '(' Statement ')'                     { $2 }
-          | Fact '=>' Statement                   { Extend $1 $3 }
+          | '{' Imply '}' '=>' Statement          { Extend $2 $5 }
           | Var '=' Var                           { Unify $1 $3 }
           | '\+' Statement                        { Not $2 }
           | atom '(' ArgsMixed ')'                { Check $1 $3 }

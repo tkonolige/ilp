@@ -11,6 +11,7 @@ $upper = [A-Z]
 
 tokens :-
 
+  \-\-[^\n]*\n                  ; -- comments
   $white+				                ;
   true                          { \s -> TTrue }
   false                         { \s -> TFalse }
@@ -23,8 +24,10 @@ tokens :-
   \)                            { \s -> TRParens }
   =                             { \s -> TEq }
   =\>                           { \s -> TImply }
-  :\-                            { \s -> TDefine }
+  :\-                           { \s -> TDefine }
   \\\+                          { \s -> TNot }
+  \{                            { \s -> TLCurly }
+  \}                            { \s -> TRCurly }
 
 {
 -- Each action has type :: String -> Token
@@ -43,6 +46,8 @@ data Token = TVar String
            | TNot
            | TTrue
            | TFalse
+           | TLCurly
+           | TRCurly
 	         deriving (Eq,Show)
 }
 
