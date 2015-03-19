@@ -65,7 +65,7 @@ createDatabase = foldl (flip addToDatabase) Map.empty
 lookupSymbol :: Database -> Symbol -> BacktrackEquiv [Clause]
 lookupSymbol d x = case lookup x d of
                      Just a  -> return a
-                     Nothing -> mzero
+                     Nothing -> traceM (x ++ " does not exist in database") >> mzero
 
 -- | Lookup a Variable in the environment
 lookup' :: Variable -> Env -> BacktrackEquiv Variable
@@ -110,13 +110,14 @@ interpret :: Env      -- ^ The local environment
           -> Int      -- ^ An incrementing number to generate unique local names
           -> Body     -- ^ The body of the clause to interpret
           -> BacktrackEquiv ()
+-- interpret env _ _ b | traceShow (b, env) False = undefined
 interpret env database i (Check sym args) = do
   clauses <- lookupSymbol database sym
+  -- lookup values of arguments
+  args' <- mapM ((flip lookup') env) args
   foldr1 interleave $ -- try each clause independently
     (flip map) clauses -- TODO: 'flip map' should really be 'for', but it doesn't work
       (\c@(Clause sym' vars body) -> do
-        -- lookup values of arguments
-        args' <- mapM ((flip lookup') env) args
         -- create new environment
         let env' = Map.fromList $ zip vars args'
         -- unify variables with arguements
@@ -141,7 +142,8 @@ interpret env database i (Not body) = lnot $ interpret env database i body
 
 interpret env database i (Extend (Clause sym vars body) clause) = do
   -- find the values of the variables
-  -- TODO: forbid illegal clause bodys, should only be facts? unclear
+  -- TODO: supposedly certain body's are forbidden, however I could not find anything written that said so.
+  -- In any case, this remains strictly more powerful.
   vars' <- mapM (\x -> lookupMaybe x env) vars
   interpret env (addToDatabase (Clause sym vars' body) database) i clause
 

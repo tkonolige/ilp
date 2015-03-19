@@ -8,10 +8,20 @@ import Prelude.Extras
 import Data.List
 import System.Environment
 import qualified Data.Map as Map
+import Control.Monad.Trans (lift)
 
 parseFile file = do
   f <- readFile file
   return $ parse f
+
+lstrip :: String -> String
+lstrip (x:xs) = if elem x " \t\r\n" then strip xs else x:xs
+
+rstrip :: String -> String
+rstrip = reverse . lstrip . reverse
+
+strip :: String -> String
+strip = lstrip . rstrip
 
 repl :: Database -> IO ()
 repl database = runInputT settings (loop database)
@@ -30,6 +40,11 @@ repl database = runInputT settings (loop database)
                 Print -> mapM_ (mapM_ (outputStrLn . pretty)) (Map.elems database) >> loop database
                 Help -> outputStrLn helpMessage >> loop database
                 Quit -> outputStrLn "Bye."
+                Load filepath -> do
+                  p <- lift $ parseFile $ strip filepath
+                  case p of
+                    Left e -> outputStrLn "Failed loading file"
+                    Right db -> loop db
                 Add xs ->
                   case parseClause xs of
                     Left e -> do
@@ -62,6 +77,7 @@ helpMessage :: String
 helpMessage = " :+ clause\tAdds a clause to the database\n\
               \ :- clause\tRemoves a clause from the database\n\
               \ :p\t\tPrint the clause database\n\
+              \ :l file\tLoads an ilp database from a file, current databse is discarded\n\
               \ :q\t\tQuits\n\
               \ :h\t\tPrint this message"
 
@@ -71,14 +87,16 @@ data Command = Print
              | Add String
              | Remove String
              | Exec String
+             | Load String
 
 parseCommand :: String -> Command
-parseCommand (':':'q':_)  = Quit
-parseCommand (':':'h':_)  = Help
-parseCommand (':':'p':_)  = Print
-parseCommand (':':'+':xs) = Add xs
-parseCommand (':':'-':xs) = Remove xs
-parseCommand xs           = Exec xs
+parseCommand (':':'q':_)      = Quit
+parseCommand (':':'h':_)      = Help
+parseCommand (':':'p':_)      = Print
+parseCommand (':':'+':xs)     = Add xs
+parseCommand (':':'-':xs)     = Remove xs
+parseCommand (':':'l':' ':xs) = Load xs
+parseCommand xs               = Exec xs
 
 main :: IO ()
 main = do
