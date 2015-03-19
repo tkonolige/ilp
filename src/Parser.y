@@ -60,6 +60,7 @@ Var : var  { Var $1}
 
 Statement : Statement ',' Statement { And $1 $3 }
           | Statement ';' Statement { Or $1 $3 }
+          | '(' Statement ')'       { $2 }
           | Fact '=>' Statement     { Extend $1 $3 }
           | Var '=' Var             { Unify $1 $3 }
           | '\+' Statement          { Not $2 }
