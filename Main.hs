@@ -2,6 +2,7 @@ module Main where
 
 import ILP
 import Parser
+import Pretty
 import System.Console.Haskeline
 import Prelude.Extras
 import Data.List
@@ -26,7 +27,7 @@ repl database = runInputT settings (loop database)
             Nothing -> outputStrLn "Bye."
             Just input ->
               case parseCommand input of
-                Print -> outputStrLn (show database) >> loop database
+                Print -> mapM_ (mapM_ (outputStrLn . pretty)) (Map.elems database) >> loop database
                 Help -> outputStrLn helpMessage >> loop database
                 Quit -> outputStrLn "Bye."
                 Add xs ->

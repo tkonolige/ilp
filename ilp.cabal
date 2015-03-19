@@ -13,13 +13,14 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     ILP, Parser
+  exposed-modules:     ILP, Parser, Pretty
   other-modules:       Lexer, UnionFind
   build-depends:       base >=4.7 && <4.8,
                        classy-prelude >=0.10 && <0.11,
                        containers >=0.5 && <0.6,
                        transformers >=0.4 && <0.5,
                        logict >=0.6 && <0.7,
+                       pretty,
                        array
   hs-source-dirs:      src
   build-tools:         alex, happy
