@@ -18,7 +18,7 @@ repl database = runInputT settings loop
       showVar (Atom a) = a
       printEnv [] = outputStrLn "Yes"
       printEnv env = mapM_ (\(a,b) -> outputStrLn $ showVar a ++ " = " ++ showVar b) env
-      settings = defaultSettings {historyFile = Just ".hubris_history"}
+      settings = defaultSettings {historyFile = Just ".ilp_history"}
       loop = do
           minput <- getInputLine "?- "
           case minput of
