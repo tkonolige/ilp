@@ -11,13 +11,12 @@ prettyClause :: Clause -> Doc
 prettyClause (Clause sym vars body) = text sym <> parens (prettyVars vars) <+> prettyLocals <+> pbody body'
   where
     pbody LTrue = empty
-    pbody body = text ":-" <+> prettyBody body
+    pbody body = color 7 (text ":-") <+> prettyBody body
     getLocals (Local v b) = let x = getLocals b
                              in (v : fst x, snd x)
     getLocals b = ([], b)
     (locals, body') = getLocals body
     prettyLocals = hsep $ map varText locals
-    -- prettyLocals = foldr (\v d -> text " " <> varText v <> d) empty locals
 
 prettyBody :: Body -> Doc
 prettyBody (And a b) = prettyBody a <+> color 4 (char ',') <+> prettyBody b
@@ -26,9 +25,9 @@ prettyBody (Check sym vars) = text sym <> parens (prettyVars vars)
 prettyBody (Unify a b) = varText a <+> equals <+> varText b
 prettyBody (LTrue) = color 5 (text "true")
 prettyBody (LFalse) = color 5 (text "false")
-prettyBody (Not b) = text "\\+" <+> prettyBody b
+prettyBody (Not b) = color 5 (text "\\+") <+> prettyBody b
 prettyBody (Local v b) = empty
-prettyBody (Extend c b) = braces (prettyClause c) <+> text "=>" <+> prettyBody b
+prettyBody (Extend c b) = braces (prettyClause c) <+> color 6 (text "=>") <+> prettyBody b
 
 prettyVars :: [Variable] -> Doc
 prettyVars = hsep . punctuate comma . map varText

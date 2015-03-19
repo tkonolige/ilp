@@ -35,7 +35,9 @@ repl database = runInputT settings (loop database)
                     Left e -> do
                       outputStrLn $ "Parse error: " ++ e
                       loop database
-                    Right clause -> loop (addToDatabase clause database)
+                    Right clause -> do
+                      outputStrLn $ "Added " ++ pretty clause
+                      loop (addToDatabase clause database)
                 Remove xs ->
                   case parseQuery xs of
                     Left e -> do
