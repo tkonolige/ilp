@@ -82,7 +82,7 @@ main :: IO ()
 main = do
   args <- getArgs
   if length args /= 1
-  then putStrLn "usage: ilp program"
+  then repl Map.empty
   else do
     p <- parseFile (args !! 0)
     case p of

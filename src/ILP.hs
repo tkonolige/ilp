@@ -74,6 +74,11 @@ lookup' (Var t) env = case lookup (Var t) env of
                         Nothing -> mzero
 lookup' (Atom t) _ = return $ Atom t
 
+-- | Lookup a Variable in the environment, returns variable on failure
+lookupMaybe :: Variable -> Env -> BacktrackEquiv Variable
+lookupMaybe (Var t) env = return $ fromMaybe (Var t) (lookup (Var t) env)
+lookupMaybe (Atom t) env = return $ Atom t
+
 -- | Unify two values, must be lifted into the outermost monad
 unify :: Env -> Variable -> Variable -> BacktrackEquiv ()
 unify env a b = do
@@ -105,13 +110,7 @@ interpret :: Env      -- ^ The local environment
           -> Int      -- ^ An incrementing number to generate unique local names
           -> Body     -- ^ The body of the clause to interpret
           -> BacktrackEquiv ()
-interpret env database i (And b1 b2) = -- Conjunction
-  (interpret env database i b1) >>- (const $ interpret env database i b2)
-
-interpret env database i (Or b1 b2) = -- Disjunction
-  interpret env database i b1 `interleave` interpret env database i b2
-
-interpret env database i (Check sym args)  = do
+interpret env database i (Check sym args) = do
   clauses <- lookupSymbol database sym
   foldr1 interleave $ -- try each clause independently
     (flip map) clauses -- TODO: 'flip map' should really be 'for', but it doesn't work
@@ -126,6 +125,12 @@ interpret env database i (Check sym args)  = do
         interpret env' database i body
       )
 
+interpret env database i (And b1 b2) = -- Conjunction
+  (interpret env database i b1) >>- (const $ interpret env database i b2)
+
+interpret env database i (Or b1 b2) = -- Disjunction
+  interpret env database i b1 `interleave` interpret env database i b2
+
 interpret env database i (Unify var1 var2) = unify env var1 var2
 
 interpret env database i LTrue = return ()
@@ -137,7 +142,7 @@ interpret env database i (Not body) = lnot $ interpret env database i body
 interpret env database i (Extend (Clause sym vars body) clause) = do
   -- find the values of the variables
   -- TODO: forbid illegal clause bodys, should only be facts? unclear
-  vars' <- mapM (\x -> lookup' x env) vars
+  vars' <- mapM (\x -> lookupMaybe x env) vars
   interpret env (addToDatabase (Clause sym vars' body) database) i clause
 
 interpret env database i (Local (Var var) body) =
@@ -158,12 +163,13 @@ populateEnv b = Map.fromList $ map (\a->(a,a)) $ filter isVar $ pop b
     pop (Check _ vars) = vars
     pop (Unify a b) = [a,b]
     pop (Not b) = pop b
-    pop _ = [] -- TODO handle Extend
+    pop _ = []
 
 makeQuery :: Body -> Database -> Logic Env
 makeQuery query database = do
-  env <- (flip execStateT) Map.empty $ interpret (populateEnv query) database 0 query
-  return $ Map.filterWithKey (\k _ -> isVar k) env
+  let env = populateEnv query
+  env' <- (flip execStateT) Map.empty $ interpret env database 0 query
+  return $ Map.filterWithKey (\k _ -> isVar k && member k env) env'
 
 -- | Interpret an ILP program with a given query and return the first result
 -- The query is given as a Check
