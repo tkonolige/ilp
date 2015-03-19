@@ -10,6 +10,7 @@ module ILP ( Variable(..)
            , Database
            , Env
            , createDatabase
+           , addToDatabase
            , solve
            , solveAll
            ) where

@@ -1,0 +1,16 @@
+-- this is a comment
+
+-- this is a fact
+full(john).
+full(joe).
+
+-- this is a rule
+happy(X) :- full(X).
+-- { R } => G is the syntax for implication
+would_be_happy(X) :- { eats(X) } => happy(X).
+
+-- locals
+foo(X) Y Z :- Y = Z.
+
+-- + will add a rule to the database i.e.
+-- + full(me).

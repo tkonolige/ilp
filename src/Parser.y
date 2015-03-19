@@ -1,12 +1,12 @@
 {
-module Parser (parse, parseQuery) where
+module Parser (parse, parseQueryOrClause) where
 
 import ILP
 import Lexer
 }
 
 %name parseClauses Clauses
-%name parseStatement Statement
+%name parseClauseOrStatement ClauseOrStatement
 %tokentype { Token }
 %monad { Either String }
 %error { parseError }
@@ -31,52 +31,50 @@ import Lexer
       '\+'            { TNot       }
       '{'             { TLCurly    }
       '}'             { TRCurly    }
+      '+'             { TPlus      }
 %%
 
-Clauses : Clause Clauses                          { $1 : $2 }
-        | {- empty-}                              { [] }
+Clauses : Clause Clauses                       { $1 : $2 }
+        | {- empty-}                           { [] }
 
-Clause : Fact '.'                                 { $1 }
-       | Rule '.'                                 { $1 }
+Clause : Fact '.'                              { $1 }
+       | Rule '.'                              { $1 }
 
-Fact : atom '(' ArgsAtom ')'                      { Clause $1 $3 LTrue }
+Fact : atom '(' Args ')'                       { Clause $1 $3 LTrue }
 
-ArgsAtom : atom                                   { [Atom $1] }
-         | atom ',' ArgsAtom                      { (Atom $1) : $3 }
+Args: var                                      { [Var $1] }
+          | atom                               { [Atom $1] }
+          | var ',' Args                       { (Var $1) : $3 }
+          | atom ',' Args                      { (Atom $1) : $3 }
 
-ArgsVar : var                                     { [Var $1] }
-        | var ',' ArgsVar                         { (Var $1) : $3 }
+Locals : var Locals                            { (Var $1) : $2 }
+       | {- empty -}                           { [] }
 
-ArgsMixed : var                                   { [Var $1] }
-          | atom                                  { [Atom $1] }
-          | var ',' ArgsMixed                     { (Var $1) : $3 }
-          | atom ',' ArgsMixed                    { (Atom $1) : $3 }
+Rule : atom '(' Args ')' Locals ':-' Statement { Clause $1 $3 (foldr (Local) $7 $5) }
 
-Locals : var Locals                               { (Var $1) : $2 }
-       | {- empty -}                              { [] }
+Var : var                                      { Var $1}
+    | atom                                     { Atom $1 }
 
-Rule : atom '(' ArgsVar ')' Locals ':-' Statement { Clause $1 $3 (foldr (Local) $7 $5) }
+Imply : Clause                                 { $1 }
+      | atom '(' Args ')'                      { Clause $1 $3 LTrue }
 
-Var : var                                         { Var $1}
-    | atom                                        { Atom $1 }
+Statement : Statement ',' Statement            { And $1 $3 }
+          | Statement ';' Statement            { Or $1 $3 }
+          | '(' Statement ')'                  { $2 }
+          | '{' Imply '}' '=>' Statement       { Extend $2 $5 }
+          | Var '=' Var                        { Unify $1 $3 }
+          | '\+' Statement                     { Not $2 }
+          | atom '(' Args ')'                  { Check $1 $3 }
+          | true                               { LTrue }
+          | false                              { LFalse }
 
-Imply : Clause                                    { $1 }
-      | atom '(' ArgsMixed ')'                    { Clause $1 $3 LTrue }
-
-Statement : Statement ',' Statement               { And $1 $3 }
-          | Statement ';' Statement               { Or $1 $3 }
-          | '(' Statement ')'                     { $2 }
-          | '{' Imply '}' '=>' Statement          { Extend $2 $5 }
-          | Var '=' Var                           { Unify $1 $3 }
-          | '\+' Statement                        { Not $2 }
-          | atom '(' ArgsMixed ')'                { Check $1 $3 }
-          | true                                  { LTrue }
-          | false                                 { LFalse }
+ClauseOrStatement : '+' Clause                 { Left $2 }
+                  | Statement                  { Right $1 }
 
 {
 parseError tkns = Left $ show tkns
 
 parse = fmap createDatabase . parseClauses . alexScanTokens
-parseQuery = parseStatement . alexScanTokens
+parseQueryOrClause = parseClauseOrStatement . alexScanTokens
 }
 

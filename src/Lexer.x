@@ -28,6 +28,7 @@ tokens :-
   \\\+                          { \s -> TNot }
   \{                            { \s -> TLCurly }
   \}                            { \s -> TRCurly }
+  \+                            { \s -> TPlus }
 
 {
 -- Each action has type :: String -> Token
@@ -48,6 +49,7 @@ data Token = TVar String
            | TFalse
            | TLCurly
            | TRCurly
+           | TPlus
 	         deriving (Eq,Show)
 }
 
