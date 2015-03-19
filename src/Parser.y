@@ -1,12 +1,13 @@
 {
-module Parser (parse, parseQueryOrClause) where
+module Parser (parse, parseQuery, parseClause) where
 
 import ILP
 import Lexer
 }
 
 %name parseClauses Clauses
-%name parseClauseOrStatement ClauseOrStatement
+%name parseClause1 Clause
+%name parseStatement Statement
 %tokentype { Token }
 %monad { Either String }
 %error { parseError }
@@ -68,13 +69,11 @@ Statement : Statement ',' Statement            { And $1 $3 }
           | true                               { LTrue }
           | false                              { LFalse }
 
-ClauseOrStatement : '+' Clause                 { Left $2 }
-                  | Statement                  { Right $1 }
-
 {
 parseError tkns = Left $ show tkns
 
 parse = fmap createDatabase . parseClauses . alexScanTokens
-parseQueryOrClause = parseClauseOrStatement . alexScanTokens
+parseQuery= parseStatement . alexScanTokens
+parseClause = parseClause1 . alexScanTokens
 }
 
