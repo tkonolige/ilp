@@ -20,12 +20,12 @@ prettyClause (Clause sym vars body) = text sym <> parens (prettyVars vars) <+> p
     -- prettyLocals = foldr (\v d -> text " " <> varText v <> d) empty locals
 
 prettyBody :: Body -> Doc
-prettyBody (And a b) = prettyBody a <+> char ',' <+> prettyBody b
-prettyBody (Or a b) = prettyBody a <+> semi <+> prettyBody b
+prettyBody (And a b) = prettyBody a <+> color 4 (char ',') <+> prettyBody b
+prettyBody (Or a b) = prettyBody a <+> color 4 semi <+> prettyBody b
 prettyBody (Check sym vars) = text sym <> parens (prettyVars vars)
 prettyBody (Unify a b) = varText a <+> equals <+> varText b
-prettyBody (LTrue) = text "true"
-prettyBody (LFalse) = text "false"
+prettyBody (LTrue) = color 5 (text "true")
+prettyBody (LFalse) = color 5 (text "false")
 prettyBody (Not b) = text "\\+" <+> prettyBody b
 prettyBody (Local v b) = empty
 prettyBody (Extend c b) = braces (prettyClause c) <+> text "=>" <+> prettyBody b
@@ -33,6 +33,9 @@ prettyBody (Extend c b) = braces (prettyClause c) <+> text "=>" <+> prettyBody b
 prettyVars :: [Variable] -> Doc
 prettyVars = hsep . punctuate comma . map varText
 
+color :: Int -> Doc -> Doc
+color i d = text ("\ESC[" ++ show (30 + i) ++ "m") <> d <> text "\ESC[m"
+
 varText :: Variable -> Doc
-varText (Var a) = text a
-varText (Atom a) = text a
+varText (Var a) = color 2 (text a)
+varText (Atom a) = color 3 (text a)
