@@ -24,7 +24,7 @@ strip :: String -> String
 strip = lstrip . rstrip
 
 repl :: Database -> IO ()
-repl database = runInputT settings (loop database)
+repl database = runInputT settings (outputStrLn welcomeMessage >> loop database)
     where
       showVar (Var a) = a
       showVar (Atom a) = a
@@ -74,12 +74,39 @@ repl database = runInputT settings (loop database)
                         rs -> mapM_ (\xs -> printEnv xs >> outputStrLn ".") rs >> loop database
 
 helpMessage :: String
-helpMessage = " :+ clause\tAdds a clause to the database\n\
+helpMessage = "Commands\n\
+              \ :+ clause\tAdds a clause to the database\n\
               \ :- clause\tRemoves a clause from the database\n\
               \ :p\t\tPrint the clause database\n\
               \ :l file\tLoads an ilp database from a file, current databse is discarded\n\
               \ :q\t\tQuits\n\
-              \ :h\t\tPrint this message"
+              \ :h\t\tPrint this message\n"
+              ++ syntaxMessage
+
+syntaxMessage :: String
+syntaxMessage = "Syntax\n\
+                \ -- this is a comment\n\
+                \ fact(a). -- this is a fact\n\
+                \ rule(X) :- fact(X). -- a rule\n\
+                \ rule(X) Local :- fact(Local). -- declaring a local variable\n\
+                \ rule(X) :- { foo(X) } => fact(X). -- implication\n\
+                \ rule(X) :- \\+ fact(X). -- negation\n\
+                \ rule(X) :- fact(X) , fact(a) -- conjunction\n\
+                \ rule(X) :- fact(X) ; fact(a) -- disjunction\n"
+
+welcomeMessage :: String
+welcomeMessage = "Welcome to the\n\
+                 \+---+ +---+ +-----------+\n\
+                 \|   | |   | |           |\n\
+                 \|   | |   | |           |\n\
+                 \|   | |   | |           |\n\
+                 \|   | |   | |    +------+\n\
+                 \|   | |   | |    |       \n\
+                 \|   | |   +----+ |     r \n\
+                 \|   | |        | |     e \n\
+                 \|   | +--------+ |     p \n\
+                 \+---+       +----+     l \n\
+                 \Type :h for help         \n"
 
 data Command = Print
              | Help
