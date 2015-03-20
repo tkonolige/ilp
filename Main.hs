@@ -91,8 +91,8 @@ syntaxMessage = "Syntax\n\
                 \ rule(X) Local :- fact(Local). -- declaring a local variable\n\
                 \ rule(X) :- { foo(X) } => fact(X). -- implication\n\
                 \ rule(X) :- \\+ fact(X). -- negation\n\
-                \ rule(X) :- fact(X) , fact(a) -- conjunction\n\
-                \ rule(X) :- fact(X) ; fact(a) -- disjunction\n"
+                \ rule(X) :- fact(X) , fact(a). -- conjunction\n\
+                \ rule(X) :- fact(X) ; fact(a). -- disjunction\n"
 
 welcomeMessage :: String
 welcomeMessage = "Welcome to the\n\

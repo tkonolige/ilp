@@ -51,7 +51,7 @@ Args: var                                      { [Var $1] }
 Locals : var Locals                            { (Var $1) : $2 }
        | {- empty -}                           { [] }
 
-Rule : atom '(' Args ')' Locals ':-' Statement { Clause $1 $3 (foldr (Local) $7 $5) }
+Rule : atom '(' Args ')' Locals ':-' Statement { Clause $1 $3 (foldr (Local) $7 $5) } -- TODO: automatically determine local variables
 
 Var : var                                      { Var $1}
     | atom                                     { Atom $1 }

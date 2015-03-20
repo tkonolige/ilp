@@ -9,3 +9,6 @@ This is a simple implementation of intuitionistic logic programming in haskell.
 ## Testing
 Tests are located inside the `test` directory. To load a test, run
 `cabal run test/test.ilp`.
+
+## Editing
+All of the ilp implementation is in `src/ILP.hs`. Look at this file if you want to understand my implementation.
