@@ -8,10 +8,10 @@ full(joe).
 happy(X) :- full(X).
 
 -- { R } => G is the syntax for implication
-would_be_happy(X) :- { eats(X) } => happy(X).
+would_be_happy(X) :- { full(X) } => happy(X).
 
 -- locals
 foo(X) X Y :- Y = Z.
 
--- + will add a rule to the database i.e.
--- + full(me).
+-- :+ will add a rule to the database in the repl
+-- :+ full(me).
